@@ -33,8 +33,6 @@ export const handleStripeWebhook = async (
 ): Promise<void> => {
   const sig = req.headers["stripe-signature"] as string;
 
-  console.log("sig", sig);
-
   if (!sig) {
     console.error("No stripe signature found");
     res.status(400).json({ error: "No stripe signature" });
@@ -48,19 +46,14 @@ export const handleStripeWebhook = async (
       process.env.STRIPE_WEBHOOK_SECRET as string
     );
 
-    console.log(`Received webhook event: ${event.type}`);
-
     if (event.type === "checkout.session.completed") {
       const session = event.data.object as any;
-      console.log(`Session id: ${event.data.object.id}`);
-
-      console.log("Processing completed session:", session.id);
 
       try {
         // Create transaction record with better error handling
         const transaction = await Transaction.create({
           stripeId: session.id,
-          amount: session.amount_total / 100, // Convert from cents to dollars
+          amount: session.amount_total / 100,
           currency: session.currency,
           status: "completed",
           customerEmail:
