@@ -4,12 +4,15 @@ import cors from "cors";
 import connectDB from "./config/db";
 import transactionRoutes from "./routes/transactionRoutes";
 import { errorHandler } from "./middleware/errorHandler";
+import { handleStripeWebhook } from "./controllers/transactionController";
 
 // Load environment variables
 dotenv.config();
 
 // Initialize express
 const app = express();
+
+app.use("/api/transactions/webhook", express.raw({ type: "application/json" }), handleStripeWebhook);
 
 // Middleware
 app.use(cors());

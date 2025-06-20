@@ -10,17 +10,16 @@ export const createCheckoutSession = async (
     const session = await stripe.checkout.sessions.create({
       line_items: [
         {
-          price: req.body.priceId, // Get priceId from request body
+          price: req.body.priceId,
           quantity: 1,
         },
       ],
       mode: "payment",
       success_url: `${
-        process.env.CLIENT_URL || "http://localhost:3000"
+        process.env.CLIENT_URL || "http://localhost:5173"
       }/success`,
-      cancel_url: `${process.env.CLIENT_URL || "http://localhost:3000"}/cancel`,
+      cancel_url: `${process.env.CLIENT_URL || "http://localhost:5173"}/cancel`,
     });
-
     res.status(200).json({ url: session.url });
   } catch (error) {
     console.error("Error creating checkout session:", error);
@@ -34,6 +33,14 @@ export const handleStripeWebhook = async (
 ): Promise<void> => {
   const sig = req.headers["stripe-signature"] as string;
 
+  console.log("sig", sig);
+
+  if (!sig) {
+    console.error("No stripe signature found");
+    res.status(400).json({ error: "No stripe signature" });
+    return;
+  }
+
   try {
     const event = stripe.webhooks.constructEvent(
       req.body,
@@ -41,18 +48,32 @@ export const handleStripeWebhook = async (
       process.env.STRIPE_WEBHOOK_SECRET as string
     );
 
+    console.log(`Received webhook event: ${event.type}`);
+
     if (event.type === "checkout.session.completed") {
       const session = event.data.object as any;
+      console.log(`Session id: ${event.data.object.id}`);
 
-      // Create transaction record
-      await Transaction.create({
-        stripeId: session.id,
-        amount: session.amount_total / 100, // Convert from cents to dollars
-        currency: session.currency,
-        status: "completed",
-        customerEmail: session.customer_details?.email,
-        metadata: session.metadata,
-      });
+      console.log("Processing completed session:", session.id);
+
+      try {
+        // Create transaction record with better error handling
+        const transaction = await Transaction.create({
+          stripeId: session.id,
+          amount: session.amount_total / 100, // Convert from cents to dollars
+          currency: session.currency,
+          status: "completed",
+          customerEmail:
+            session.customer_details?.email || session.customer_email,
+          metadata: session.metadata || {},
+        });
+
+        console.log("Transaction created successfully:", transaction._id);
+      } catch (dbError) {
+        console.error("Database error creating transaction:", dbError);
+        // Still return 200 to Stripe to avoid retries, but log the error
+        // You might want to implement a retry mechanism or dead letter queue here
+      }
     }
 
     res.status(200).json({ received: true });
