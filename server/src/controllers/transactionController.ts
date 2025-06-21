@@ -7,19 +7,33 @@ export const createCheckoutSession = async (
   res: Response
 ): Promise<void> => {
   try {
-    const session = await stripe.checkout.sessions.create({
-      line_items: [
-        {
-          price: req.body.priceId,
-          quantity: 1,
-        },
-      ],
-      mode: "payment",
-      success_url: `${
-        process.env.CLIENT_URL || "http://localhost:5173"
-      }/success`,
-      cancel_url: `${process.env.CLIENT_URL || "http://localhost:5173"}/cancel`,
-    });
+    const { priceId, idempotencyKey } = req.body;
+
+    if (!priceId || !idempotencyKey) {
+      res.status(400).json({ error: "Missing required parameters" });
+      return;
+    }
+
+    const session = await stripe.checkout.sessions.create(
+      {
+        line_items: [
+          {
+            price: priceId,
+            quantity: 1,
+          },
+        ],
+        mode: "payment",
+        success_url: `${
+          process.env.CLIENT_URL || "http://localhost:5173"
+        }/success`,
+        cancel_url: `${
+          process.env.CLIENT_URL || "http://localhost:5173"
+        }/cancel`,
+      },
+      {
+        idempotencyKey,
+      }
+    );
     res.status(200).json({ url: session.url });
   } catch (error) {
     console.error("Error creating checkout session:", error);

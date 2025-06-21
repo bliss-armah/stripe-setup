@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import "./App.css";
 import axios from "axios";
+import { v4 as uuidv4 } from "uuid";
 
 const ProductDisplay = ({ onCheckout }: { onCheckout: () => void }) => (
   <section>
@@ -31,10 +32,12 @@ export default function App() {
   const handleCheckout = async () => {
     setLoading(true);
     try {
+      const idempotencyKey = uuidv4();
       const response = await axios.post(
         "http://localhost:5000/api/transactions/create-checkout-session",
         {
-          priceId: "price_1Rc8g0HRqljSVYaAUJd2WCu5", // replace with actual Stripe price ID
+          priceId: "price_1Rc8g0HRqljSVYaAUJd2WCu5",
+          idempotencyKey,
         }
       );
       window.location.href = response.data.url;
