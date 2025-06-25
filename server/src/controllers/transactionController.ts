@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import stripe from "../config/stripe";
-import Transaction from "../models/Transaction";
+import prisma from "../config/prismaInstance";
 
 export const createCheckoutSession = async (
   req: Request,
@@ -64,8 +64,7 @@ export const handleStripeWebhook = async (
       const session = event.data.object as any;
 
       try {
-        // Create transaction record with better error handling
-        const transaction = await Transaction.create({
+        const transaction = await prisma.transaction.create({
           stripeId: session.id,
           amount: session.amount_total / 100,
           currency: session.currency,
@@ -75,11 +74,9 @@ export const handleStripeWebhook = async (
           metadata: session.metadata || {},
         });
 
-        console.log("Transaction created successfully:", transaction._id);
+        console.log("Transaction created successfully:", transaction.id);
       } catch (dbError) {
         console.error("Database error creating transaction:", dbError);
-        // Still return 200 to Stripe to avoid retries, but log the error
-        // You might want to implement a retry mechanism or dead letter queue here
       }
     }
 
